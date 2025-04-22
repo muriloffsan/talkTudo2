@@ -1,27 +1,45 @@
 //Murilo Ferreira Faria Santana e Pedro Zocatelli
+
 import React, { useEffect, useRef } from 'react';
-import { View, Image, Animated, StyleSheet } from 'react-native';
+import { View, Animated, Image, StyleSheet, StatusBar } from 'react-native';
 
 export default function SplashScreen({ navigation }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1500,
-      useNativeDriver: true
-    }).start(() => {
+    // Início da animação (zoom + fade)
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Espera + navegação
       setTimeout(() => {
         navigation.replace('Login');
-      }, 1000); 
+      }, 1000);
     });
   }, []);
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor="#0d47a1" barStyle="light-content" />
       <Animated.Image
         source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')}
-        style={[styles.logo, { opacity: fadeAnim }]}
+        style={[
+          styles.logo,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
       />
     </View>
   );
@@ -30,13 +48,13 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0d47a1', // azul escuro lindo
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   logo: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain'
-  }
+    width: 250,
+    height: 250,
+    resizeMode: 'contain',
+  },
 });
