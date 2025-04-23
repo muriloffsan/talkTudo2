@@ -1,13 +1,32 @@
 // Murilo Ferreira Faria Santana e Pedro Zocatelli
-// Nome: [Seu Nome Aqui]
-import React, { useState } from 'react';
-import { View, Text, TextInput, ImageBackground, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  ImageBackground,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Animated
+} from 'react-native';
 import { auth } from '../../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // 👇 Animação fade-in
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true
+    }).start();
+  }, []);
 
   const login = () => {
     signInWithEmailAndPassword(auth, email, password)
@@ -17,7 +36,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ImageBackground source={require('../assets/fundologin.avif')} style={styles.background}>
-      <View style={styles.container}>
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Image source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')} style={styles.logo} />
         <TextInput
           placeholder="Email"
@@ -38,7 +57,7 @@ export default function LoginScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
           <Text style={styles.linkText}>Criar conta</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </ImageBackground>
   );
 }
