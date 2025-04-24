@@ -1,57 +1,104 @@
-// Murilo Ferreira Faria Santana e Pedro Zocatelli
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { auth } from '../../firebase';
+// Criado por Jake 👾
+import React, { useEffect, useState } from 'react';
+import {
+  View, FlatList, TextInput, TouchableOpacity, Text, StyleSheet, KeyboardAvoidingView
+} from 'react-native';
+import { db, auth } from '../../firebase';
+import { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion } from 'firebase/firestore';
+import Post from '../screens/components/Post';
 
-export default function HomeScreen({ navigation }) {
-  const user = auth.currentUser;
+export default function HomeScreen() {
+  const [postText, setPostText] = useState('');
+  const [posts, setPosts] = useState([]);
 
-  const logout = () => {
-    auth.signOut();
-    navigation.replace('Login');
+  useEffect(() => {
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPosts(data);
+    });
+    return unsubscribe;
+  }, []);
+
+  const createPost = async () => {
+    if (!postText.trim()) return;
+    await addDoc(collection(db, 'posts'), {
+      userId: auth.currentUser.uid,
+      content: postText,
+      likes: [],
+      createdAt: new Date()
+    });
+    setPostText('');
+  };
+
+  const handleLike = async (postId, currentLikes) => {
+    const postRef = doc(db, 'posts', postId);
+    if (!currentLikes.includes(auth.currentUser.uid)) {
+      await updateDoc(postRef, {
+        likes: arrayUnion(auth.currentUser.uid)
+      });
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Bem-vindo ao Talk Tudo 👋</Text>
-      <Text style={styles.subtitle}>Usuário: {user?.email}</Text>
-
-      <TouchableOpacity style={styles.button} onPress={logout}>
-        <Text style={styles.buttonText}>Sair</Text>
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <Post
+            post={item}
+            onLike={() => handleLike(item.id, item.likes || [])}
+          />
+        )}
+        contentContainerStyle={{ padding: 15 }}
+      />
+      <View style={styles.inputArea}>
+        <TextInput
+          placeholder="O que você está pensando?"
+          value={postText}
+          onChangeText={setPostText}
+          style={styles.input}
+        />
+        <TouchableOpacity onPress={createPost} style={styles.button}>
+          <Text style={styles.buttonText}>Postar</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#e3f2fd', // Azul claro elegante
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
+    backgroundColor: '#ecf0f1'
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#0d47a1',
-    marginBottom: 10
+  inputArea: {
+    flexDirection: 'row',
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff'
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#1e88e5',
-    marginBottom: 30
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 10
   },
   button: {
-    backgroundColor: '#0d47a1',
+    backgroundColor: '#1877F2',
     paddingVertical: 12,
-    paddingHorizontal: 25,
+    paddingHorizontal: 16,
     borderRadius: 8
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold'
   }
 });
-
