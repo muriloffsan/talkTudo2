@@ -1,24 +1,42 @@
 //Murilo Ferreira Faria Santana e Pedro Zocatelli
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
-import { auth, db } from '../../firebase';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  ImageBackground,
+  Alert 
+} from 'react-native';
+import { auth, db } from '../../firebase'; 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 
 export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nome, setNome] = useState(''); 
 
   const register = async () => {
+    if (!email || !password || !nome) {
+      Alert.alert('Erro', 'Preencha todos os campos');
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, "users", userCredential.user.uid), {
+      const user = userCredential.user; 
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        nome,          
         email,
         createdAt: new Date()
       });
       navigation.replace('Home');
     } catch (error) {
-      alert(error.message);
+      Alert.alert('Erro no Cadastro', error.message);
     }
   };
 
@@ -26,17 +44,30 @@ export default function RegisterScreen({ navigation }) {
     <ImageBackground source={require('../assets/fundologin.avif')} style={styles.background}>
       <View style={styles.container}>
         <Image source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')} style={styles.logo} />
+
+        <TextInput
+          placeholder="Nome Completo"
+          placeholderTextColor="#ccc"
+          style={styles.input}
+          value={nome} 
+          onChangeText={setNome} 
+        />
+
         <TextInput
           placeholder="Email"
           placeholderTextColor="#ccc"
           style={styles.input}
+          value={email} 
           onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
         <TextInput
           placeholder="Senha"
           placeholderTextColor="#ccc"
           secureTextEntry
           style={styles.input}
+          value={password}
           onChangeText={setPassword}
         />
         <TouchableOpacity style={styles.button} onPress={register}>

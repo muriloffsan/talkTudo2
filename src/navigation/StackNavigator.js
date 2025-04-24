@@ -6,7 +6,9 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import SplashScreen from '../screens/SplashScreen';
 import ProfileScreen from '../screens/ProfileScreen'; 
-import Post from '../screens/components/Post'; 
+import Post from '../screens/components/Post';
+
+
 
 const Stack = createStackNavigator();
 

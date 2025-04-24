@@ -1,5 +1,4 @@
 //Murilo Ferreira Faria Santana e Pedro Zocatelli
-
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, Image, StyleSheet, StatusBar } from 'react-native';
 
@@ -8,7 +7,6 @@ export default function SplashScreen({ navigation }) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Início da animação (zoom + fade)
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 1,
@@ -21,7 +19,6 @@ export default function SplashScreen({ navigation }) {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Espera + navegação
       setTimeout(() => {
         navigation.replace('Login');
       }, 1000);
@@ -32,7 +29,7 @@ export default function SplashScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar backgroundColor="#0d47a1" barStyle="light-content" />
       <Animated.Image
-        source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')}
+        source={require('../assets/Aluilison.jpeg')}
         style={[
           styles.logo,
           {
@@ -48,7 +45,7 @@ export default function SplashScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d47a1', // azul escuro lindo
+    backgroundColor: '#0d47a1',
     justifyContent: 'center',
     alignItems: 'center',
   },
