@@ -1,3 +1,4 @@
+//Murilo Ferreira Faria Santana e Pedro Zocatelli
 import { registerRootComponent } from 'expo';
 
 import App from './App';
