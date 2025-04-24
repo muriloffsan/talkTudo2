@@ -8,7 +8,6 @@ import SplashScreen from '../screens/SplashScreen';
 import ProfileScreen from '../screens/ProfileScreen'; // Mantemos só uma vez
 import Post from '../screens/components/Post';
 import CommentsScreen from '../screens/CommentsScreen';
-
 const Stack = createStackNavigator();
 
 const StackNavigator = () => {

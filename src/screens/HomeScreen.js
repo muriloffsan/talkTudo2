@@ -10,7 +10,9 @@ import {
   Platform,
   SafeAreaView,
   Alert,
-  ScrollView,
+  ActivityIndicator,
+  Keyboard,
+  Modal
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { db, auth } from '../../firebase';
@@ -25,15 +27,21 @@ import {
   arrayUnion,
   getDoc,
   deleteDoc,
+  arrayRemove,
+  serverTimestamp
 } from 'firebase/firestore';
 import Post from '../screens/components/Post';
 
 export default function HomeScreen({ navigation }) {
-  const user = auth.currentUser;
   const [postText, setPostText] = useState('');
   const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const nav = useNavigation();
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
+    setIsLoading(true);
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
@@ -41,6 +49,11 @@ export default function HomeScreen({ navigation }) {
         ...doc.data(),
       }));
       setPosts(data);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro ao buscar posts: ", error);
+      Alert.alert("Erro", "Não foi possível carregar os posts.");
+      setIsLoading(false);
     });
     return unsubscribe;
   }, []);
@@ -56,41 +69,61 @@ export default function HomeScreen({ navigation }) {
       return;
     }
 
-    const uid = auth.currentUser?.uid;
+    if (!currentUser) {
+      Alert.alert("Erro", "Você precisa estar logado para postar.");
+      return;
+    }
+
+    const uid = currentUser.uid;
     let nome = 'Usuário Anônimo';
 
     try {
-      const userDocSnap = await getDoc(doc(db, 'users', uid));
+      const userDocRef = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        nome = userDocSnap.data().nome || nome;
+        nome = userDocSnap.data()?.nome || nome;
       }
 
       await addDoc(collection(db, 'posts'), {
         userId: uid,
         userName: nome,
-        content: postText,
+        content: postText.trim(),
         likes: [],
-        createdAt: new Date(),
+        createdAt: serverTimestamp()
       });
 
       setPostText('');
+      Keyboard.dismiss();
     } catch (error) {
       Alert.alert('Erro', 'Erro ao criar post');
       console.error(error);
     }
   };
 
-  const handleLike = async (postId, likes) => {
-    const userId = auth.currentUser?.uid;
-    if (!likes.includes(userId)) {
-      await updateDoc(doc(db, 'posts', postId), {
-        likes: arrayUnion(userId),
-      });
+  const handleLike = async (postId, currentLikes) => {
+    if (!currentUser) {
+      Alert.alert("Erro", "Você precisa estar logado para curtir.");
+      return;
+    }
+
+    const postRef = doc(db, 'posts', postId);
+    const userId = currentUser.uid;
+    const likesArray = Array.isArray(currentLikes) ? currentLikes : [];
+
+    try {
+      if (!likesArray.includes(userId)) {
+        await updateDoc(postRef, { likes: arrayUnion(userId) });
+      } else {
+        await updateDoc(postRef, { likes: arrayRemove(userId) });
+      }
+    } catch (error) {
+      console.error("Erro ao curtir/descurtir post:", error);
+      Alert.alert("Erro", "Não foi possível atualizar a curtida.");
     }
   };
 
   const handleDelete = async (postId, userId) => {
-    if (auth.currentUser?.uid !== userId) {
+    if (currentUser?.uid !== userId) {
       return Alert.alert('Ação não permitida');
     }
 
@@ -98,24 +131,29 @@ export default function HomeScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
-        <View style={{ flex: 1 }}>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ flexGrow: 1 }}
-          >
-            <View style={styles.header}>
-              <Text style={styles.title}>Talk Tudo 👋</Text>
-              <Text style={styles.subtitle}>Usuário: {user?.email}</Text>
-              <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-                <Text style={styles.logoutText}>Sair</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Botão para abrir a barra lateral */}
+        <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.menuBtn}>
+          <Text style={styles.menuText}>☰</Text>
+        </TouchableOpacity>
 
+        <View style={styles.header}>
+          <Text style={styles.title}>Talk Tudo 👋</Text>
+          <Text style={styles.subtitle}>Usuário: {currentUser?.email}</Text>
+          <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Sair</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.contentArea}>
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#1877F2" style={styles.loadingIndicator} />
+          ) : (
             <FlatList
               data={posts}
               keyExtractor={(item) => item.id}
@@ -124,36 +162,80 @@ export default function HomeScreen({ navigation }) {
                   post={item}
                   onLike={() => handleLike(item.id, item.likes || [])}
                   onDelete={() => handleDelete(item.id, item.userId)}
-                  currentUserId={auth.currentUser?.uid}
+                  currentUserId={currentUser?.uid}
                   navigation={navigation}
                 />
               )}
-              style={styles.list}
-              contentContainerStyle={{ paddingBottom: 100 }}
+              contentContainerStyle={styles.listContentContainer}
+              ListEmptyComponent={<Text style={styles.emptyListText}>Nenhum post ainda. Seja o primeiro!</Text>}
             />
-          </ScrollView>
-
-          <View style={styles.inputArea}>
-            <TextInput
-              placeholder="Escreva algo..."
-              style={styles.input}
-              value={postText}
-              onChangeText={setPostText}
-            />
-            <TouchableOpacity onPress={createPost} style={styles.sendBtn}>
-              <Text style={styles.sendText}>Postar</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            placeholder="O que você está pensando?"
+            value={postText}
+            onChangeText={setPostText}
+            style={styles.input}
+            placeholderTextColor="#888"
+            multiline
+          />
+          <TouchableOpacity
+            onPress={createPost}
+            style={[styles.button, !postText.trim() && styles.buttonDisabled]}
+            disabled={!postText.trim()}
+          >
+            <Text style={styles.buttonText}>Postar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Modal da barra lateral */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={sidebarVisible}
+          onRequestClose={() => setSidebarVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.sidebarOverlay}
+            onPress={() => setSidebarVisible(false)}
+            activeOpacity={1}
+          >
+            <View style={styles.sidebar}>
+              <Text style={styles.sidebarTitle}>Menu</Text>
+
+              <TouchableOpacity
+                style={styles.sidebarItem}
+                onPress={() => {
+                  setSidebarVisible(false);
+                  nav.navigate('Profile');
+                }}
+              >
+                <Text style={styles.sidebarText}>👤 Perfil</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sidebarItem}
+                onPress={() => {
+                  setSidebarVisible(false);
+                  nav.navigate('Notifications'); 
+                }}
+              >
+                <Text style={styles.sidebarText}>🔔 Notificações</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#f0f2f5',
   },
   container: {
     flex: 1,
@@ -162,6 +244,9 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 10,
     marginBottom: 15,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 5,
   },
   title: {
     fontSize: 24,
@@ -183,36 +268,80 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  list: {
+  contentArea: {
     flex: 1,
   },
-  inputArea: {
+  loadingIndicator: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  listContentContainer: {
+    paddingBottom: 100,
+  },
+  emptyListText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#555',
+  },
+  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
     padding: 10,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderColor: '#ccc',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    borderTopColor: '#ccc',
   },
   input: {
     flex: 1,
-    backgroundColor: '#f1f1f1',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginRight: 10,
     height: 40,
-  },
-  sendBtn: {
-    backgroundColor: '#0d47a1',
-    padding: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 8,
+    marginRight: 10,
   },
-  sendText: {
+  button: {
+    backgroundColor: '#0d47a1',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  menuBtn: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    padding: 10,
+  },
+  menuText: {
+    fontSize: 28,
+    color: '#0d47a1',
+  },
+  sidebarOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    flexDirection: 'row',
+  },
+  sidebar: {
+    width: 250,
+    backgroundColor: '#fff',
+    padding: 20,
+    elevation: 5,
+  },
+  sidebarTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  sidebarItem: {
+    marginVertical: 10,
+  },
+  sidebarText: {
+    fontSize: 18,
   },
 });
