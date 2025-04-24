@@ -10,16 +10,15 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 export default function Post({ post, onLike }) {
-  // Adicionado userId à desestruturação
   const { userName, content, createdAt, likes, id: postId, userId } = post;
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
-  const currentUser = auth.currentUser; // Armazena o usuário atual para evitar chamadas repetidas
+  const currentUser = auth.currentUser; 
 
   useEffect(() => {
-    let unsubscribe = () => {}; // Inicializa com uma função vazia
-    if (showComments && postId) { // Garante que postId existe
+    let unsubscribe = () => {}; 
+    if (showComments && postId) { 
       const commentsCollectionRef = collection(db, 'posts', postId, 'comments');
       const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
 
@@ -31,15 +30,14 @@ export default function Post({ post, onLike }) {
         setComments(data);
       }, (error) => {
         console.error("Erro ao buscar comentários: ", error);
-        // Opcional: Informar o usuário sobre o erro
-        // Alert.alert("Erro", "Não foi possível carregar os comentários.");
+
       });
     } else {
-      setComments([]); // Limpa os comentários se showComments for false ou postId for inválido
+      setComments([]); 
     }
-    // Função de limpeza que será chamada quando o componente desmontar ou showComments/postId mudar
+
     return () => unsubscribe();
-  }, [showComments, postId]); // Adicionado postId como dependência
+  }, [showComments, postId]); 
 
   const sendComment = async () => {
     if (!commentText.trim() || !currentUser) {
@@ -100,7 +98,7 @@ export default function Post({ post, onLike }) {
 
   // Função para deletar um comentário
   const handleDeleteComment = async (commentId) => {
-     // Confirmação antes de excluir
+
      Alert.alert(
       "Confirmar Exclusão",
       "Tem certeza que deseja excluir este comentário?",
@@ -121,13 +119,10 @@ export default function Post({ post, onLike }) {
       ]
     );
   };
-
-  // Função para renderizar cada item de comentário
   const renderCommentItem = ({ item }) => (
     <View style={styles.comment}>
       <View style={styles.commentHeader}>
         <Text style={styles.commentName}>{item.userName || 'Usuário'}</Text>
-        {/* Botão de excluir comentário (condicional) */}
         {currentUser?.uid === item.userId && (
           <TouchableOpacity onPress={() => handleDeleteComment(item.id)} style={styles.deleteCommentButton}>
             <Text style={styles.deleteText}>🗑</Text>
@@ -327,7 +322,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccd0d5',
     marginRight: 8,
     fontSize: 15,
-    maxHeight: 100, // Limita altura do input multiline
+    maxHeight: 100, 
   },
   sendButton: {
     paddingHorizontal: 15,
