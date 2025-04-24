@@ -32,7 +32,7 @@ export default function SplashScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar backgroundColor="#0d47a1" barStyle="light-content" />
       <Animated.Image
-        source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')}
+        source={require('../assets/baixado.png')}
         style={[
           styles.logo,
           {

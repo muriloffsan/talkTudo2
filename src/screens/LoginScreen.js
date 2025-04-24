@@ -37,7 +37,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <ImageBackground source={require('../assets/fundologin.avif')} style={styles.background}>
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <Image source={require('../assets/WhatsApp Image 2025-04-22 at 13.39.37.jpeg')} style={styles.logo} />
+        <Image source={require('../assets/baixado.png')} style={styles.logo} />
         <TextInput
           placeholder="Email"
           placeholderTextColor="#ccc"
@@ -75,8 +75,8 @@ const styles = StyleSheet.create({
     borderRadius: 20
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 250,
+    height: 250,
     alignSelf: 'center',
     marginBottom: 40,
     resizeMode: 'contain'
