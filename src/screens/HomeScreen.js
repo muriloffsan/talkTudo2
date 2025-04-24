@@ -7,7 +7,10 @@ import {
   Text,
   StyleSheet,
   KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { db, auth } from '../../firebase';
@@ -30,29 +33,22 @@ export default function HomeScreen({ navigation }) {
   const [postText, setPostText] = useState('');
   const [posts, setPosts] = useState([]);
 
+  useEffect(() => {
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setPosts(data);
+    });
+    return unsubscribe;
+  }, []);
+
   const logout = () => {
     auth.signOut();
     navigation.replace('Login');
   };
-
-  useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setPosts(data);
-      },
-      (error) => {
-        console.error('Erro ao buscar posts: ', error);
-        Alert.alert('Erro', 'Não foi possível carregar os posts.');
-      }
-    );
-    return unsubscribe;
-  }, []);
 
   const createPost = async () => {
     if (!postText.trim()) {
@@ -60,26 +56,15 @@ export default function HomeScreen({ navigation }) {
       return;
     }
 
-    if (!auth.currentUser) {
-      Alert.alert('Erro', 'Você precisa estar logado para postar.');
-      return;
-    }
-
-    const uid = auth.currentUser.uid;
+    const uid = auth.currentUser?.uid;
     let nome = 'Usuário Anônimo';
 
     try {
-      const userDocRef = doc(db, 'users', uid);
-      const userDocSnap = await getDoc(userDocRef);
-
+      const userDocSnap = await getDoc(doc(db, 'users', uid));
       if (userDocSnap.exists()) {
-        nome = userDocSnap.data()?.nome || nome;
+        nome = userDocSnap.data().nome || nome;
       }
-    } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
-    }
 
-    try {
       await addDoc(collection(db, 'posts'), {
         userId: uid,
         userName: nome,
@@ -87,158 +72,147 @@ export default function HomeScreen({ navigation }) {
         likes: [],
         createdAt: new Date(),
       });
+
       setPostText('');
     } catch (error) {
-      console.error('Erro ao criar post:', error);
-      Alert.alert('Erro', 'Não foi possível criar o post. Tente novamente.');
+      Alert.alert('Erro', 'Erro ao criar post');
+      console.error(error);
     }
   };
 
-  const handleLike = async (postId, currentLikes) => {
-    if (!auth.currentUser) {
-      Alert.alert('Erro', 'Você precisa estar logado para curtir.');
-      return;
-    }
-
-    const postRef = doc(db, 'posts', postId);
-    const userId = auth.currentUser.uid;
-    const likesArray = Array.isArray(currentLikes) ? currentLikes : [];
-
-    if (!likesArray.includes(userId)) {
-      try {
-        await updateDoc(postRef, {
-          likes: arrayUnion(userId),
-        });
-      } catch (error) {
-        console.error('Erro ao curtir post:', error);
-        Alert.alert('Erro', 'Não foi possível curtir o post.');
-      }
-    } else {
-      console.log('Usuário já curtiu este post.');
+  const handleLike = async (postId, likes) => {
+    const userId = auth.currentUser?.uid;
+    if (!likes.includes(userId)) {
+      await updateDoc(doc(db, 'posts', postId), {
+        likes: arrayUnion(userId),
+      });
     }
   };
 
-  const handleDelete = async (postId, postUserId) => {
-    if (!auth.currentUser) {
-      Alert.alert('Erro', 'Você precisa estar logado para deletar posts.');
-      return;
+  const handleDelete = async (postId, userId) => {
+    if (auth.currentUser?.uid !== userId) {
+      return Alert.alert('Ação não permitida');
     }
 
-    if (auth.currentUser.uid !== postUserId) {
-      Alert.alert('Permissão Negada', 'Você só pode deletar seus próprios posts.');
-      return;
-    }
-
-    Alert.alert('Confirmar Exclusão', 'Tem certeza que deseja deletar este post?', [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Deletar',
-        onPress: async () => {
-          try {
-            const postRef = doc(db, 'posts', postId);
-            await deleteDoc(postRef);
-          } catch (error) {
-            console.error('Erro ao deletar post:', error);
-            Alert.alert('Erro', 'Não foi possível deletar o post.');
-          }
-        },
-        style: 'destructive',
-      },
-    ]);
+    await deleteDoc(doc(db, 'posts', postId));
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={80}>
-      <Text style={styles.title}>Bem-vindo ao Talk Tudo 👋</Text>
-      <Text style={styles.subtitle}>Usuário: {user?.email}</Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>Talk Tudo 👋</Text>
+              <Text style={styles.subtitle}>Usuário: {user?.email}</Text>
+              <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+                <Text style={styles.logoutText}>Sair</Text>
+              </TouchableOpacity>
+            </View>
 
-      <TouchableOpacity style={styles.button} onPress={logout}>
-        <Text style={styles.buttonText}>Sair</Text>
-      </TouchableOpacity>
+            <FlatList
+              data={posts}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Post
+                  post={item}
+                  onLike={() => handleLike(item.id, item.likes || [])}
+                  onDelete={() => handleDelete(item.id, item.userId)}
+                  currentUserId={auth.currentUser?.uid}
+                  navigation={navigation}
+                />
+              )}
+              style={styles.list}
+              contentContainerStyle={{ paddingBottom: 100 }}
+            />
+          </ScrollView>
 
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Post
-            post={item}
-            onLike={() => handleLike(item.id, item.likes || [])}
-            onDelete={() => handleDelete(item.id, item.userId)}
-            currentUserId={auth.currentUser?.uid}
-            navigation={navigation}
-          />
-        )}
-        contentContainerStyle={{ padding: 15 }}
-        ListEmptyComponent={<Text style={styles.emptyListText}>Nenhum post ainda. Seja o primeiro!</Text>}
-      />
-
-      <View style={styles.inputArea}>
-        <TextInput
-          placeholder="O que você está pensando?"
-          value={postText}
-          onChangeText={setPostText}
-          style={styles.input}
-          placeholderTextColor="#888"
-        />
-        <TouchableOpacity onPress={createPost} style={styles.button}>
-          <Text style={styles.buttonText}>Postar</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <View style={styles.inputArea}>
+            <TextInput
+              placeholder="Escreva algo..."
+              style={styles.input}
+              value={postText}
+              onChangeText={setPostText}
+            />
+            <TouchableOpacity onPress={createPost} style={styles.sendBtn}>
+              <Text style={styles.sendText}>Postar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
     backgroundColor: '#e3f2fd',
-    padding: 20,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  header: {
+    marginTop: 10,
+    marginBottom: 15,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#0d47a1',
-    marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
     color: '#1e88e5',
-    marginBottom: 30,
   },
-  button: {
+  logoutBtn: {
     backgroundColor: '#0d47a1',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
+    padding: 10,
     borderRadius: 8,
     marginTop: 10,
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
   },
-  buttonText: {
+  logoutText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
+  },
+  list: {
+    flex: 1,
   },
   inputArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    backgroundColor: '#ffffff',
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: '#ccc',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    backgroundColor: '#f1f1f1',
     borderRadius: 8,
+    paddingHorizontal: 10,
     marginRight: 10,
-    borderColor: '#ccc',
-    borderWidth: 1,
+    height: 40,
   },
-  emptyListText: {
-    textAlign: 'center',
-    marginTop: 20,
-    color: '#555',
+  sendBtn: {
+    backgroundColor: '#0d47a1',
+    padding: 10,
+    borderRadius: 8,
+  },
+  sendText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
