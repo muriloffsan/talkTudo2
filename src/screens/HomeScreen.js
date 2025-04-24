@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { db, auth } from '../../firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, getDoc } from 'firebase/firestore';
-import Post from '../screens/components/Post'; 
+import {
+  collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, getDoc, deleteDoc // Importar deleteDoc
+} from 'firebase/firestore';
+import Post from '../screens/components/Post';
 
 export default function HomeScreen() {
   const [postText, setPostText] = useState('');
@@ -57,7 +59,7 @@ export default function HomeScreen() {
 
     try {
       await addDoc(collection(db, 'posts'), {
-        userId: uid,
+        userId: uid, // Certifique-se de que o userId está sendo salvo
         userName: nome,
         content: postText,
         likes: [],
@@ -90,9 +92,54 @@ export default function HomeScreen() {
         Alert.alert("Erro", "Não foi possível curtir o post.");
       }
     } else {
+      // Opcional: Implementar descurtir (remover userId do array)
       console.log("Usuário já curtiu este post.");
+      // Exemplo de como descurtir (precisa importar arrayRemove):
+      // await updateDoc(postRef, { likes: arrayRemove(userId) });
     }
   };
+
+  // --- INÍCIO: Nova função para deletar post ---
+  const handleDelete = async (postId, postUserId) => {
+    if (!auth.currentUser) {
+      Alert.alert("Erro", "Você precisa estar logado para deletar posts.");
+      return;
+    }
+
+    // Verifica se o usuário logado é o autor do post
+    if (auth.currentUser.uid !== postUserId) {
+      Alert.alert("Permissão Negada", "Você só pode deletar seus próprios posts.");
+      return;
+    }
+
+    // Confirmação antes de deletar
+    Alert.alert(
+      "Confirmar Exclusão",
+      "Tem certeza que deseja deletar este post? Esta ação não pode ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Deletar",
+          onPress: async () => {
+            try {
+              const postRef = doc(db, 'posts', postId);
+              await deleteDoc(postRef);
+              // O post será removido automaticamente da lista devido ao onSnapshot
+              // Alert.alert("Sucesso", "Post deletado."); // Opcional: feedback visual
+            } catch (error) {
+              console.error("Erro ao deletar post:", error);
+              Alert.alert("Erro", "Não foi possível deletar o post.");
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+  // --- FIM: Nova função para deletar post ---
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={80}>
@@ -103,6 +150,10 @@ export default function HomeScreen() {
           <Post
             post={item}
             onLike={() => handleLike(item.id, item.likes || [])}
+            // --- INÍCIO: Passar a função handleDelete e o userId do post ---
+            onDelete={() => handleDelete(item.id, item.userId)}
+            currentUserId={auth.currentUser?.uid} // Passa o ID do usuário logado para o Post
+            // --- FIM: Passar a função handleDelete e o userId do post ---
             navigation={navigation}
           />
         )}
@@ -125,7 +176,6 @@ export default function HomeScreen() {
   );
 }
 
-// ... (styles continuam iguais)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
