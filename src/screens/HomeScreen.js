@@ -1,3 +1,4 @@
+//Murilo Ferreira Faria Santana e Pedro Zocatelli
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -31,6 +32,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import Post from '../screens/components/Post';
+import { sendNotification } from '../screens/NotificationScreen'; // Importando a função de notificação
 
 export default function HomeScreen({ navigation }) {
   const [postText, setPostText] = useState('');
@@ -109,13 +111,15 @@ export default function HomeScreen({ navigation }) {
     const postRef = doc(db, 'posts', postId);
     const userId = currentUser.uid;
     const likesArray = Array.isArray(currentLikes) ? currentLikes : [];
+    const isLiked = likesArray.includes(userId);
 
     try {
-      if (!likesArray.includes(userId)) {
+      if (!isLiked) {
         await updateDoc(postRef, { likes: arrayUnion(userId) });
       } else {
         await updateDoc(postRef, { likes: arrayRemove(userId) });
       }
+      // A notificação de like agora é tratada no componente Post
     } catch (error) {
       console.error("Erro ao curtir/descurtir post:", error);
       Alert.alert("Erro", "Não foi possível atualizar a curtida.");
@@ -127,7 +131,33 @@ export default function HomeScreen({ navigation }) {
       return Alert.alert('Ação não permitida');
     }
 
-    await deleteDoc(doc(db, 'posts', postId));
+    Alert.alert(
+      "Confirmar Exclusão",
+      "Tem certeza que deseja excluir este post?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Excluir comentários associados ao post (boa prática)
+              const commentsQuery = query(collection(db, 'posts', postId, 'comments'));
+              const commentsSnapshot = await getDocs(commentsQuery);
+              commentsSnapshot.forEach(async (doc) => {
+                await deleteDoc(doc.ref);
+              });
+
+              await deleteDoc(doc(db, 'posts', postId));
+              Alert.alert("Sucesso", "Post excluído com sucesso!");
+            } catch (error) {
+              console.error("Erro ao excluir post:", error);
+              Alert.alert("Erro", "Não foi possível excluir o post.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -219,7 +249,7 @@ export default function HomeScreen({ navigation }) {
                 style={styles.sidebarItem}
                 onPress={() => {
                   setSidebarVisible(false);
-                  nav.navigate('Notifications'); 
+                  nav.navigate('NotificationScreen');
                 }}
               >
                 <Text style={styles.sidebarText}>🔔 Notificações</Text>

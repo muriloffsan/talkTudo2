@@ -8,6 +8,8 @@ import SplashScreen from '../screens/SplashScreen';
 import ProfileScreen from '../screens/ProfileScreen'; // Mantemos só uma vez
 import Post from '../screens/components/Post';
 import CommentsScreen from '../screens/CommentsScreen';
+import NotificationScreen from '../screens/NotificationScreen';
+
 const Stack = createStackNavigator();
 
 const StackNavigator = () => {
@@ -20,6 +22,7 @@ const StackNavigator = () => {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Post" component={Post} />
       <Stack.Screen name="Comments" component={CommentsScreen} />
+      <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
     </Stack.Navigator>
   );
 };

@@ -1,5 +1,4 @@
 //Murilo Ferreira Faria Santana e Pedro Zocatelli
-
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, Image, StyleSheet, StatusBar } from 'react-native';
 
@@ -8,7 +7,6 @@ export default function SplashScreen({ navigation }) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Início da animação (zoom + fade)
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 1,
