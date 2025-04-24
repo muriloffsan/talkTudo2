@@ -1,11 +1,16 @@
 # TalkTudo2
 
 TalkTudo2 é um site desenvolvido para facilitar a comunicação e interação entre usuários. Este projeto foi criado com o objetivo de oferecer uma plataforma simples e eficiente para troca de mensagens e compartilhamento de informações.
+<<<<<<< HEAD
 ## email e senha para teste:
 email: Real@gmail.com
 Senha:123456
 
 
+=======
+email:pedro@gmail.com
+senha:200718
+>>>>>>> 9900fbce630864b55a2a87c44e02efdf91f4488d
 ## Funcionalidades
 
 - Envio e recebimento de mensagens em tempo real.
